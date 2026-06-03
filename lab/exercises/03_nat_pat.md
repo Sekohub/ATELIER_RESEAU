@@ -58,15 +58,14 @@ Tuple retour (serveur > routeur) :
 **Question A.2.** Quelle IP voit le serveur `internet` dans
 `access.log`&nbsp;? Pourquoi pas `172.20.1.50`&nbsp;?
 
-`le serveur voit 172.20.0.254 (l'IP WAN du routeur) et non 172.20.1.50/176, car le MASQUERADE réécrit l'adresse source de chaque paquet sortant.` 
+`Le serveur voit 172.20.0.254 (l'IP WAN du routeur) et non 172.20.1.50/176, car le MASQUERADE réécrit l'adresse source de chaque paquet sortant.` 
 
 **Question A.3.** Combien de **ports sources distincts** apparaissent
 côté NAT pour les 5 requêtes parallèles&nbsp;? Que se passerait-il avec
 65&nbsp;000 connexions simultanées&nbsp;? (donnez une borne théorique).
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+`Nous avons 5 ports sources distincts : sport=39972, 39982, 39960, 39946, 39932`
+`La borne théorique du NAT à une IP est d'environ 65 535 connexions simultanées par couple (IP:port) destination (≈ 28 000 en pratique avec la plage éphémère par défaut), car le port source TCP est codé sur 16 bits. Au-delà, c'est l'épuisement de ports et les nouvelles connexions échouent — sauf si elles visent des destinations différentes, auquel cas chaque destination dispose de sa propre plage de ports.`
 
 ## Partie B — Casser le NAT et réparer
 
@@ -86,23 +85,26 @@ Relancez `curl http://172.20.0.10/whoami` depuis le client. Que se
 passe-t-il **côté client** (timeout, refus, autre)&nbsp;? **Côté serveur**
 (log nginx)&nbsp;?
 
-> 💬 **Votre réponse (observation client + serveur) :**
->
-> _Remplacez ce texte par votre réponse._
+`Côté client, il y a un timeout. Et aucune trace côté log serveur.`
 
 Vérifiez avec un tcpdump sur le routeur, côté WAN&nbsp;:
 
-```bash
-docker exec lab_nat_router tcpdump -i eth0 -nn host 172.20.0.10
-```
+`Côté serveur, nous avons une trame : 
+10:46:28.720927 IP 172.20.1.176.47598 > 172.20.0.10.80: Flags [S], seq 3376677701, win 64240, options [mss 1460,sackOK,TS val 1453316240 ecr 0,nop,wscale 7], length 0`
+`On constate que l'IP source est cette fois-ci l'ip privée du client à cause de l'absence de la règle MASQUERADE`
 
 **Question B.** Quelle IP source apparaît dans les paquets sortants&nbsp;?
 Pourquoi l'absence de MASQUERADE cause un problème pour la **réponse**
 plutôt que pour l'**aller**&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+`A l'allée, 
+Le client a une route par défaut (via 172.20.1.254) et sait où envoyer son paquet
+Le routeur a ip_forward=1 et connaît les deux réseaux (il a une patte sur chacun). Il sait donc acheminer le paquet du LAN vers le WAN
+Le paquet arrive sans souci jusqu'au serveur, avec sa source 172.20.1.176`
+
+`Au retour, 
+Le serveur veut répondre vers 172.20.1.176, mais le serveur est sur le réseau WAN 172.20.0.0/24 uniquement.
+Il n'a aucune route vers le réseau privé LAN 172.20.1.0/24. Sa réponse est donc envoyée vers sa passerelle par défaut, qui n'a pas forcément de chemin de retour vers le LAN privé non plus. Résultat : le paquet se perd`
 
 Remettez la règle&nbsp;:
 
