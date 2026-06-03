@@ -47,16 +47,18 @@ docker logs --tail 20 lab_internet
 Annotez chaque champ&nbsp;: `src`, `dst`, `sport`, `dport`, **puis le
 second tuple** (reply), et expliquez ce que le tuple-reply signifie.
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Tuple aller (client > serveur) : 
+`src=172.20.1.176` / `dst=172.20.0.10` / `sport=39972` / `dport=80`
+
+Tuple retour (serveur > routeur) :
+`src=172.20.0.10` / `dst=172.20.0.254` / `sport=80` / `dport=39972 `
+
+`Le tuple-reply décrit comment le routeur s'attend à voir revenir les paquets de réponse. On observe bien que la destination est le routeur (pas l'ip du client), le MASQUERADE est donc bien actif et c'est le port qui va permettre la communication avec le bon destinataire.` 
 
 **Question A.2.** Quelle IP voit le serveur `internet` dans
 `access.log`&nbsp;? Pourquoi pas `172.20.1.50`&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+`le serveur voit 172.20.0.254 (l'IP WAN du routeur) et non 172.20.1.50/176, car le MASQUERADE réécrit l'adresse source de chaque paquet sortant.` 
 
 **Question A.3.** Combien de **ports sources distincts** apparaissent
 côté NAT pour les 5 requêtes parallèles&nbsp;? Que se passerait-il avec
