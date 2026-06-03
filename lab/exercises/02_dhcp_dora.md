@@ -37,12 +37,12 @@ docker logs --tail 40 lab_dhcp_server
 
 Complétez en vous appuyant sur **votre propre capture**&nbsp;:
 
-| Étape       | Émetteur (IP src) | Destinataire (IP dst) | MAC src / dst | Options DHCP notables |
-| ----------- | ----------------- | --------------------- | ------------- | --------------------- |
-| 1. Discover | `0.0.0.0`         | `255.255.255.255`     | …             | option 53 = …, option 55 = … |
-| 2. Offer    | …                 | …                     | …             | … |
-| 3. Request  | …                 | …                     | …             | … |
-| 4. ACK      | …                 | …                     | …             | … |
+| Étape       | Émetteur (IP src) | Destinataire (IP dst) |               MAC src / dst               | Options DHCP notables |
+| ----------- | ----------------- | --------------------- | ----------------------------------------- | --------------------- |
+| 1. Discover | `0.0.0.0`         | `255.255.255.255`     | `6a:7e:b7:2d:0b:9e` > `ff:ff:ff:ff:ff:ff` | option 53 = …, option 55 = … |
+| 2. Offer    | `172.20.1.2`      | `172.20.1.176`        | `d2:6f:84:6f:7f:1c` > `6a:7e:b7:2d:0b:9e` | … |
+| 3. Request  | `0.0.0.0`         | `255.255.255.255`     | `6a:7e:b7:2d:0b:9e` > `ff:ff:ff:ff:ff:ff` | … |
+| 4. ACK      | `172.20.1.2`      | `172.20.1.176`        | `d2:6f:84:6f:7f:1c` > `6a:7e:b7:2d:0b:9e` | … |
 
 ### 2. Configuration finale du client
 
@@ -54,9 +54,12 @@ docker exec lab_client cat /etc/resolv.conf   # peut être vide si non géré pa
 
 Notez **l'IP attribuée, le masque, la passerelle, les DNS, la durée de bail**.
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse (IP / masque / GW / DNS / bail)._
+Configuration finale client : 
+IP : 172.20.1.176 /24
+Masque : 255.255.255.0
+Gateway : 172.20.1.254
+DNS : 1.1.1.1 / 8.8.8.8
+Durée de bail : 42191sec (~12h)
 
 ### 3. Questions de réflexion
 
@@ -64,39 +67,33 @@ Notez **l'IP attribuée, le masque, la passerelle, les DNS, la durée de bail**.
 source** pour le Discover, alors que c'est une adresse non routable&nbsp;?
 Que se passerait-il avec n'importe quelle autre adresse&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Le client envoie un Discover car il n'a pas encore d'adresse IP pour communiquer. Il emet donc une trame vide en 0.0.0.0 "Broadcast" (en UDP) pour contacter le serveur. 
+Avec une autre addresse, la demande serait rejetée.
 
 **Question 2.** Pourquoi le **Request** est-il **rediffusé en broadcast**
 alors que le client connaît déjà l'IP du serveur après l'Offer&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Au moment du "Request", le client n'a pas encore appliquée l'adresse IP que le serveur lui a offerte. Il ne peut donc pas envoyé un paquet ciblé vers le serveur.
+Le Broadcast reste donc son seul moyen de communiquer avec le serveur.
 
 **Question 3.** À quoi sert le **transaction ID (xid)** présent dans les
 4 paquets&nbsp;? Que se passerait-il s'il était omis dans un réseau avec
 plusieurs serveurs DHCP&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Le xid corrèle les messages d'une même transaction DHCP, indispensable car le protocole est en broadcast/UDP sans connexion. 
+Sans lui, dans un réseau multi-serveurs ou multi-clients, il serait impossible de savoir quelle réponse correspond à quelle requête, provoquant des attributions d'IP erronées.
 
 **Question 4.** Que renvoie le serveur si vous demandez explicitement une
 adresse hors du pool (essayez `dhclient -v -s 172.20.1.99 eth0`)&nbsp;?
 Justifiez.
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Un message "No DHCPOFFERS received" apparaît après quelques tentatives. Le serveur ignore la demande car il ne distribue que des IP qu'il gère.
+Si ça n'était pas le cas, il y aurait des conflits d'adresses et un manque de cohérence dans le réseau. Après coup, un nouveau Discover est lancé et le REQUEST est rectifiée avec une IP valide (c'est le NAK).
 
 **Question 5.** La directive `dhcp-authoritative` est active sur notre
 serveur. Quel est son effet **comportemental** sur les NAK&nbsp;?
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Le dhcp-authoritative fait passer le serveur d'un mode passif (ignore les demandes invalides) à un mode actif (répond par un NAK immédiat). Résultat : les clients mal configurés sont corrigés tout de suite et repartent sur un Discover propre, ce qui accélère et fiabilise l'attribution d'adresses sur un réseau dont ce serveur est l'autorité.
 
 ### 4. Renouvellement de bail (T1/T2)
 
@@ -104,6 +101,6 @@ Le bail est de 12&nbsp;h, T1 (renouvellement) à 6&nbsp;h, T2 (rebind) à 10&nbs
 En **2-3 phrases**, décrivez la différence entre un renouvellement T1 et
 un rebind T2 (destinataire du paquet, comportement attendu).
 
-> 💬 **Votre réponse :**
->
-> _Remplacez ce texte par votre réponse._
+Dans le cas d'un renouvellement T1 à 6h, le client recontacte directement le serveur DHCP d'origine en UDP vers 172.20.1.2 pour lui demander de renouveller son bail. 
+Si le serveur est injoignable et n'a pas répondu à l'appelle T1, le rebind T2 consiste à faire la même demande en Broadcast pour solliciter n'importe quel serveur DHCP du réseau.
+Enfin si les deux demandes T1 et T2 sont sans réponse, le client va repartir sur un Discover complet.
