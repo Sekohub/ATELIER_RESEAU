@@ -159,7 +159,7 @@ capture** (champ, valeur observée). Justifiez en 1-2 phrases.
 | 4 — Transport      | _ex. port TCP, flags_           | `Port dest = 80 / Flags = ..AP.. / Port source : 58286`|
 | 3 — Réseau         | _ex. IP source / destination_   | `IP dest = 172.20.1.50`|
 | 2 — Liaison        | _ex. adresses MAC_              | `MAC dest = ba:5b:85:8b:ca:d8`|
-| 1 — Physique       | _non visible — pourquoi&nbsp;?_ | `Pas de couche Physique car les trames sont capturées à partir de la couche L2. Elles sont donc déjà décodées en bits par la carte réseau.`|
+| 1 — Physique       | _non visible — pourquoi&nbsp;?_ | `Pas de couche Physique car les trames sont capturées à partir de la couche L2.Elles sont donc déjà décodées en bits par la carte réseau.`|
 
 ## Questions de réflexion
 
