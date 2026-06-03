@@ -138,9 +138,13 @@ NAT (exercice 3), pointez-le vers le bon conteneur et le bon fichier :
    visibles (utilisez la ligne `Pile présente : …` en en-tête). Expliquez
    en 1 phrase pourquoi la couche 7 est absente sur la trame de contrôle TCP.
 
-> 💬 **Votre réponse (sorties du script + analyse) :**
->
-> _Remplacez ce texte par votre réponse._
+I. Trame HTTP avec une liste des couches visibles dans la pile : 4 0.000260 172.20.1.50 → 172.20.0.10 HTTP 141 GET / HTTP/1.1 Couches : L2 - Liaison Ethernet / L3 - Réseau IPv4 / L4 - Transport TCP / L7 Application HTTP
+
+II. Trame de contrôle TCP (ACK) : 3 0.000074 172.20.1.50 → 172.20.0.10 TCP 66 58282 → 80 [ACK] Seq=1 Ack=1 Win=64256 Len=0 TSval=4080508213 TSecr=1517447008 Couches : L2 - Liaison Ethernet / L3 - Réseau IPv4 / L4 - Transport TCP
+
+Pas de couche applicative sur la trame n°3 car elle ne sert qu'à établir, maintenir ou fermer la connexion établie au niveau "Transport".
+
+
 
 ## À rendre — répondez directement dans ce fichier
 
@@ -150,12 +154,12 @@ capture** (champ, valeur observée). Justifiez en 1-2 phrases.
 | Couche OSI         | Élément observé dans la capture | Valeur exemple |
 | ------------------ | ------------------------------- | -------------- |
 | 7 — Application    | _ex. méthode HTTP_              | `GET /whoami HTTP/1.1` |
-| 6 — Présentation   | _ex. encodage / Content-Type_   | …              |
-| 5 — Session        | _ex. Keep-Alive, cookies_       | …              |
-| 4 — Transport      | _ex. port TCP, flags_           | …              |
-| 3 — Réseau         | _ex. IP source / destination_   | …              |
-| 2 — Liaison        | _ex. adresses MAC_              | …              |
-| 1 — Physique       | _non visible — pourquoi&nbsp;?_ | …              |
+| 6 — Présentation   | _ex. encodage / Content-Type_   | `text/html - text/plain` |
+| 5 — Session        | _ex. Keep-Alive, cookies_       | `Connection: close`|
+| 4 — Transport      | _ex. port TCP, flags_           | `Port dest = 80 / Flags = ..AP.. / Port source : 58286`|
+| 3 — Réseau         | _ex. IP source / destination_   | `IP dest = 172.20.1.50`|
+| 2 — Liaison        | _ex. adresses MAC_              | `MAC dest = ba:5b:85:8b:ca:d8`|
+| 1 — Physique       | _non visible — pourquoi&nbsp;?_ | `Pas de couche Physique car les trames sont capturées à partir de la couche L2. Elles sont donc déjà décodées en bits par la carte réseau.`|
 
 ## Questions de réflexion
 
@@ -163,7 +167,7 @@ capture** (champ, valeur observée). Justifiez en 1-2 phrases.
 **pas** celle du serveur `internet` mais celle du `nat-router`&nbsp;? Que
 vous apprend cette observation sur la portée de chaque couche&nbsp;?
 
-> Lorsque le client va envoyer un paquet vers la destination : 172.20.0.10 ; il va consulter sa table de routage et constater que la destination est sur un autre réseau. Ainsi, la trame va passer par la passerelle par défaut (172.20.0.254), qui correspond au routeur NAT et la trame sera encapsulée avec comme "MAC destination", celle du routeur.
+Lorsque le client va envoyer un paquet vers la destination : 172.20.0.10 ; il va consulter sa table de routage et constater que la destination est sur un autre réseau. Ainsi, la trame va passer par la passerelle par défaut (172.20.0.254), qui correspond au routeur NAT et la trame sera encapsulée avec comme "MAC destination", celle du routeur.
 
 **Question 2.** Vous capturez sur `eth0` du client (côté LAN). Dans votre
 trace, l'**IP source** sortante est `172.20.1.50`. Pourtant, `curl /whoami`
@@ -171,21 +175,21 @@ rapporte que le serveur perçoit `172.20.0.254`. Expliquez cette différence
 et indiquez **où** il faudrait capturer pour voir l'IP réécrite.
 *Astuce&nbsp;:* `docker exec lab_nat_router tcpdump -i any -nn -c 10 host 172.20.0.10`.
 
-> La capture de trame se fait sur l'interface "eth0" du client. Le paquet n'est donc pas encore passé par le routeur, ce qui explique pourquoi l'adresse sortante est le "172.20.1.50" mais le serveur web perçoit "172.20.0.254". L'un est capturée avant le passage par le WAN du routeur l'autre après. Pour constater ce changement, la capture devrait être faite sur l'interface WAN du routeur.
+La capture de trame se fait sur l'interface "eth0" du client. Le paquet n'est donc pas encore passé par le routeur, ce qui explique pourquoi l'adresse sortante est le "172.20.1.50" mais le serveur web perçoit "172.20.0.254". L'un est capturée avant le passage par le WAN du routeur l'autre après. Pour constater ce changement, la capture devrait être faite sur l'interface WAN du routeur.
 
 **Question 3.** Lancez `curl -v https://...` vers un site HTTPS public
 (depuis l'hôte, pas le lab). Quelle couche change visiblement par
 rapport au HTTP du lab&nbsp;? Quelles couches **disparaissent** de votre
 visibilité&nbsp;?
 
-> La couche 7 "Application" était clairement visible sur HTTP. Elle n'est plus du tout visible lorsque l'on fait un -curl vers un site "https://" puisqu'elle est chiffrée par TLS. La couche 6 "Présentation" quant à elle apparaît puisque le "handshake" du TLS apparaît dans les trames.
+La couche 7 "Application" était clairement visible sur HTTP. Elle n'est plus du tout visible lorsque l'on fait un -curl vers un site "https://" puisqu'elle est chiffrée par TLS. La couche 6 "Présentation" quant à elle apparaît puisque le "handshake" du TLS apparaît dans les trames.
 
 **Question 4.** La couche 5 (Session) est très peu visible dans une
 capture HTTP/1.1. Donnez **deux mécanismes applicatifs** qui jouent le
 rôle de la couche session, et expliquez pourquoi ils sont implémentés
 « plus haut »&nbsp;dans la pile.
 
-> La couche 5 n'apparît pas car en HTTP/1.1, les requête sont indépendantes les une des autres. Donc à chaque requête, le serveur ferme la session précedente. Deux éléments qui permettent de garder une session active sont les cookies et les token, ils permettent d'authentifier un utilisateur à chaque requête sans fermer la session. Or, TCP/IP n'a que 4 couches par rapport au modèle OSI, donc ces éléments sont présents dans la couche "Apllication", couche 7 du modèle OSI. C'est la couche applicative qui définit si une session doit rester active ou non.
+La couche 5 n'apparît pas car en HTTP/1.1, les requête sont indépendantes les une des autres. Donc à chaque requête, le serveur ferme la session précedente. Deux éléments qui permettent de garder une session active sont les cookies et les token, ils permettent d'authentifier un utilisateur à chaque requête sans fermer la session. Or, TCP/IP n'a que 4 couches par rapport au modèle OSI, donc ces éléments sont présents dans la couche "Apllication", couche 7 du modèle OSI. C'est la couche applicative qui définit si une session doit rester active ou non.
 
 ## Pièges fréquents
 
